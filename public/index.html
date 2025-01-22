@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Cube Game</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+
+        (function() {
+            const canvas = document.getElementById('renderCanvas');
+            const engine = new BABYLON.Engine(canvas, true);
+    
+            const createScene = () => {
+                const scene = new BABYLON.Scene(engine);
+                const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2,  Math.PI / 3, 10, BABYLON.Vector3.Zero(), scene);
+                new BABYLON.AxesViewer(scene, 2);
+    
+                camera.setTarget(BABYLON.Vector3.Zero());
+                camera.attachControl(canvas, true);
+    
+                const light = new BABYLON.DirectionalLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+                var light2 = new BABYLON.PointLight("light2", new BABYLON.Vector3(-1, 5, 3), scene);
+                var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(3, 0, -5), scene);
+
+                var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
+                var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+                groundMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // RGB: (0, 1, 0) is green
+                ground.material = groundMaterial;
+    
+                return scene;
+            };
+    
+            const scene = createScene();
+    
+            // Store player cubes
+            const cubes = {};
+            let currentPlayerId = null;
+            const socket = io();
+    
+            // Add a cube to the scene
+            const addCube = (id, position) => {
+                const cube = BABYLON.MeshBuilder.CreateBox(id, { size: 1 }, scene);
+                var brickWallDiffURL = "https://i.imgur.com/Rkh1uFK.png";
+                var brickWallNHURL = "https://i.imgur.com/GtIUsWW.png";
+                var stoneDiffURL = "https://i.imgur.com/VSbN3Fc.png";
+                var stoneNHURL = "https://i.imgur.com/zVGaZNi.png";
+                var stoneDiffuseTexture = new BABYLON.Texture(stoneDiffURL, scene);
+                var stoneNormalsHeightTexture = new BABYLON.Texture(stoneNHURL, scene);
+                var wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+                var wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+                var normalsHeightTexture = stoneNormalsHeightTexture;
+
+                var material = new BABYLON.StandardMaterial("mtl01", scene);
+                material.diffuseTexture = stoneDiffuseTexture;
+                material.bumpTexture = stoneNormalsHeightTexture;
+                material.useParallax = true;
+                material.useParallaxOcclusion = true;
+                material.parallaxScaleBias = 0.1;
+                material.specularPower = 1000.0;
+                material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                cube.position = new BABYLON.Vector3(position.x, position.y + 0.5, position.z);
+                cube.material = material;
+                cubes[id] = cube;
+            };
+    
+            // Move a cube in the scene
+            const moveCube = (id, position) => {
+                if (cubes[id]) {
+                    cubes[id].position = new BABYLON.Vector3(position.x, position.y + 0.5, position.z);
+                }
+            };
+    
+            // Remove a cube from the scene
+            const removeCube = (id) => {
+                if (cubes[id]) {
+                    cubes[id].dispose();
+                    delete cubes[id];
+                }
+            };
+    
+            // Listen for socket events
+            socket.on('connect', () => {
+                currentPlayerId = socket.id;
+            });
+    
+            // Initial cube positions from the server
+            socket.on('currentPlayers', (players) => {
+                for (const id in players) {
+                    addCube(id, players[id]);
+                }
+            });
+    
+            // Add a new player cube
+            socket.on('newPlayer', (data) => {
+                if (!cubes[data.id]) {
+                    addCube(data.id, data.position);
+                }
+            });
+    
+            // Update a cube's position
+            socket.on('updateCube', (data) => {
+                if (cubes[data.id] && data.id !== currentPlayerId) {
+                    moveCube(data.id, data.position);
+                }
+            });
+    
+            // Remove a disconnected player's cube
+            socket.on('removePlayer', (id) => {
+                removeCube(id);
+            });
+    
+            // Handle player input
+            const playerSpeed = 0.1;
+            const playerPosition = { x: 0, y: 0, z: 0 };
+    
+            window.addEventListener('keydown', (event) => {
+                if (currentPlayerId && cubes[currentPlayerId]) {
+                    switch (event.key) {
+                        case 'w': playerPosition.z += playerSpeed; break; // Move forward
+                        case 's': playerPosition.z -= playerSpeed; break; // Move backward
+                        case 'a': playerPosition.x -= playerSpeed; break; // Move left
+                        case 'd': playerPosition.x += playerSpeed; break; // Move right
+                        case 'q': playerPosition.y -= playerSpeed; break; // Move down
+                        case 'e': playerPosition.y += playerSpeed; break; // Move up
+                    }
+    
+                    // Update the current player's cube position
+                    cubes[currentPlayerId].position = new BABYLON.Vector3(
+                        playerPosition.x,
+                        playerPosition.y + 0.5,
+                        playerPosition.z
+                    );
+    
+                    // Emit the updated position to the server
+                    socket.emit('moveCube', playerPosition);
+                }
+            });
+    
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+    
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+
+        })();
+    </script>
+</body>
+</html>
