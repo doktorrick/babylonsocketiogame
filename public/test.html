@@ -4,31 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplayer Cube Game</title>
-    <!-- <script src="https://cdn.babylonjs.com/babylon.js"></script> -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- <script src="https://assets.babylonjs.com/generated/Assets.js"></script> -->
-
-
-
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <!-- <script src="https://cdn.babylonjs.com/babylon.max.js"></script> -->
-    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
-    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
-    <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
-    <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.js"></script>
-    <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
-    <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.js"></script>
-    <script src="../assets.js"></script>
-    <!-- <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
-    <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.js"></script>
-    <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
-    <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.max.js"></script>
-    <script src="https://cdn.babylonjs.com/viewer/babylon.viewer.js"></script>
-    <script src="https://cdn.babylonjs.com/viewer/babylon.viewer.max.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.6.1/dist/socket.io.min.js"></script>
+
     <style>
         canvas {
             display: block;
@@ -58,16 +36,6 @@
                 var light2 = new BABYLON.PointLight("light2", new BABYLON.Vector3(-1, 5, 3), scene);
                 var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(3, 0, -5), scene);
 
-                        	
-                // Skybox
-                const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 100.0 }, scene);
-                const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
-                skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("textures/TropicalSunnyDay", scene);
-                skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
-                skyboxMaterial.backFaceCulling = false;
-                skyboxMaterial.disableLighting = true;
-                skybox.material = skyboxMaterial;
-
                 var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
                 var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
                 groundMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // RGB: (0, 1, 0) is green
@@ -78,7 +46,6 @@
     
             const scene = createScene();
     
-            // console.log(JSON.stringify(Assets))
             // Store player cubes
             const cubes = {};
             let currentPlayerId = null;
@@ -87,16 +54,27 @@
             // Add a cube to the scene
             const addCube = (id, position) => {
                 const cube = BABYLON.MeshBuilder.CreateBox(id, { size: 1 }, scene);
-                var material = new BABYLON.StandardMaterial(id, scene);
-                material.backFaceCulling = false;
-                material.reflectionTexture = new BABYLON.CubeTexture("textures/cubemapDebug", scene);
-                material.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
-                // material.disableLighting = true;
+                var brickWallDiffURL = "https://i.imgur.com/Rkh1uFK.png";
+                var brickWallNHURL = "https://i.imgur.com/GtIUsWW.png";
+                var stoneDiffURL = "https://i.imgur.com/VSbN3Fc.png";
+                var stoneNHURL = "https://i.imgur.com/zVGaZNi.png";
+                var stoneDiffuseTexture = new BABYLON.Texture(stoneDiffURL, scene);
+                var stoneNormalsHeightTexture = new BABYLON.Texture(stoneNHURL, scene);
+                var wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+                var wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+                var normalsHeightTexture = stoneNormalsHeightTexture;
 
+                var material = new BABYLON.StandardMaterial("mtl01", scene);
+                material.diffuseTexture = stoneDiffuseTexture;
+                material.bumpTexture = stoneNormalsHeightTexture;
+                material.useParallax = true;
+                material.useParallaxOcclusion = true;
+                material.parallaxScaleBias = 0.1;
+                material.specularPower = 1000.0;
+                material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
                 cube.position = new BABYLON.Vector3(position.x, position.y + 0.5, position.z);
                 cube.material = material;
                 cubes[id] = cube;
-                
             };
     
             // Move a cube in the scene
