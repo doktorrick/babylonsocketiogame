@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multiplayer Cube Game</title>
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <!-- <script src="/socket.io/socket.io.js"></script> -->
-    <!-- <script src="https://assets.babylonjs.com/generated/Assets.js"></script> -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
-
+    <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
     <!-- <script src="https://cdn.babylonjs.com/babylon.js"></script> -->
     <!-- <script src="https://cdn.babylonjs.com/babylon.max.js"></script> -->
     <!-- <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
@@ -30,149 +29,304 @@
     <script src="https://cdn.babylonjs.com/viewer/babylon.viewer.js"></script>
     <script src="https://cdn.babylonjs.com/viewer/babylon.viewer.max.js"></script> -->
     <style>
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <canvas id="renderCanvas"></canvas>
     <script>
-        (function() {
-            const canvas = document.getElementById('renderCanvas');
-            const engine = new BABYLON.Engine(canvas, true);
-        
-            const createScene = () => {
-                const scene = new BABYLON.Scene(engine);
-                const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 3, 10, BABYLON.Vector3.Zero(), scene);
-                new BABYLON.AxesViewer(scene, 2);
-        
-                camera.setTarget(BABYLON.Vector3.Zero());
-                camera.attachControl(canvas, true);
-        
-                const light = new BABYLON.DirectionalLight("light", new BABYLON.Vector3(1, 1, 0), scene);
-        
-                var light2 = new BABYLON.PointLight("light2", new BABYLON.Vector3(-1, 5, 3), scene);
-                var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(3, 0, -5), scene);
-        
-                // Skybox
-                const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 100.0 }, scene);
-                const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
-                skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("textures/TropicalSunnyDay", scene);
-                skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
-                skyboxMaterial.backFaceCulling = false;
-                skyboxMaterial.disableLighting = true;
-                skybox.material = skyboxMaterial;
-        
-                var ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 6, height: 6 }, scene);
-                var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
-                groundMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // RGB: (0, 1, 0) is green
-                ground.material = groundMaterial;
-        
-                return scene;
-            };
-        
-            const scene = createScene();
-        
-            // Store player cubes
-            const cubes = {};
-            let currentPlayerId = null;
-            const socket = io();
-        
-            // Add a cube to the scene
-            const addCube = (id, position) => {
-                const cube = BABYLON.MeshBuilder.CreateBox(id, { size: 1 }, scene);
-                const material = new BABYLON.StandardMaterial(id, scene);
-                // material.backFaceCulling = false;
-                // material.reflectionTexture = new BABYLON.CubeTexture("textures/cubemapDebug", scene);
-                // material.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
-        
-                cube.position = new BABYLON.Vector3(position.x, position.y + 0.5, position.z);
-                cube.material = material;
-                cubes[id] = cube;
-            };
-        
-            // Move a cube in the scene
-            const moveCube = (id, position) => {
-                if (cubes[id]) {
-                    cubes[id].position = new BABYLON.Vector3(position.x, position.y + 0.5, position.z);
-                }
-            };
-        
-            // Remove a cube from the scene
-            const removeCube = (id) => {
-                if (cubes[id]) {
-                    cubes[id].dispose();
-                    delete cubes[id];
-                }
-            };
-        
-            // Listen for socket events
-            socket.on('connect', () => {
-                currentPlayerId = socket.id;
+      (function () {
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        // Store player cubes
+        const cubes = {};
+        let currentPlayerId = null;
+        const socket = io();
+
+        function loadMultipleMeshes(scene) {
+          Promise.all([
+            BABYLON.SceneLoader.ImportMeshAsync(
+              "",
+              "./models/",
+              "Soldier.glb",
+              scene
+            ),
+            BABYLON.SceneLoader.ImportMeshAsync(
+              "",
+              "./models/",
+              "shark.glb",
+              scene
+            ),
+          ])
+            .then(([firstResult, secondResult]) => {
+              // Process the first model
+              firstResult.meshes.forEach((mesh) => {
+                mesh.scaling.scaleInPlace(1.1);
+                const soldierAnim = scene.getAnimationGroupByName("TPose");
+                soldierAnim.start(
+                  true,
+                  1.0,
+                  soldierAnim.from,
+                  soldierAnim.to,
+                  false
+                );
+                // mesh.position.x = -2; // Adjust position
+              });
+
+              // Process the second model
+              secondResult.meshes.forEach((mesh) => {
+                // mesh.scaling.scaleInPlace(0.3);
+                mesh.position.x = 10; // Adjust position
+                // mesh.rotation.y = Math.PI / 3;
+                // mesh.rotation.x = 10;                                // mesh.rotation = Math.PI / 2;
+                // mesh.rotation = Math.PI / 2;
+              });
+
+              console.log("All models imported!");
+            })
+            .catch((error) => {
+              console.error("Error loading models:", error);
             });
-        
-            // Handle initial players
-            socket.on('currentPlayers', (players) => {
-                for (const id in players) {
-                    if (!cubes[id]) {
-                        addCube(id, players[id]);
-                    }
-                }
-            });
-        
-            // Handle new players
-            socket.on('newPlayer', (data) => {
-                if (!cubes[data.id]) {
-                    addCube(data.id, data.position);
-                }
-            });
-        
-            // Handle player movement
-            socket.on('updateCube', (data) => {
-                moveCube(data.id, data.position);
-            });
-        
-            // Handle player disconnection
-            socket.on('removePlayer', (id) => {
-                removeCube(id);
-            });
-        
-            // Handle player input
-            const playerSpeed = 0.1;
-            const playerPosition = { x: 0, y: 0, z: 0 };
-        
-            window.addEventListener('keydown', (event) => {
-                if (currentPlayerId && cubes[currentPlayerId]) {
-                    switch (event.key) {
-                        case 'w': playerPosition.z += playerSpeed; break; // Move forward
-                        case 's': playerPosition.z -= playerSpeed; break; // Move backward
-                        case 'a': playerPosition.x -= playerSpeed; break; // Move left
-                        case 'd': playerPosition.x += playerSpeed; break; // Move right
-                        case 'q': playerPosition.y -= playerSpeed; break; // Move down
-                        case 'e': playerPosition.y += playerSpeed; break; // Move up
-                    }
-        
-                    // Update the current player's cube position
-                    moveCube(currentPlayerId, playerPosition);
-        
-                    // Emit the updated position to the server
-                    socket.emit('moveCube', playerPosition);
-                }
-            });
-        
-            engine.runRenderLoop(() => {
-                scene.render();
-            });
-        
-            window.addEventListener('resize', () => {
-                engine.resize();
-            });
-        
-        })();
-        </script>
-        
-</body>
+        }
+
+        const createScene = () => {
+          engine.enableOfflineSupport = false;
+
+          const scene = new BABYLON.Scene(engine);
+          // const camera1 = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 3, 10, BABYLON.Vector3.Zero(), scene);
+          // camera1.lowerRadiusLimit = 2;
+          // camera1.upperRadiusLimit = 10;
+          // camera1.wheelDeltaPercentage = 0.01;
+          // new BABYLON.AxesViewer(scene, 2);
+
+          // camera1.setTarget(BABYLON.Vector3.Zero());
+          // camera1.attachControl(canvas, true);
+
+            var camera1 = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 4, 10, new BABYLON.Vector3(0, -5, 0), scene);
+            scene.activeCamera = camera1;
+            scene.activeCamera.attachControl(canvas, true);
+            camera1.lowerRadiusLimit = 2;
+            camera1.upperRadiusLimit = 10;
+            camera1.wheelDeltaPercentage = 0.01;
+
+          // Lights
+          var light = new BABYLON.HemisphericLight(
+            "light1",
+            new BABYLON.Vector3(0, 1, 0),
+            scene
+          );
+          light.intensity = 0.6;
+          light.specular = BABYLON.Color3.Black();
+
+          var light2 = new BABYLON.DirectionalLight(
+            "dir01",
+            new BABYLON.Vector3(0.5, -0.5, -1.0),
+            scene
+          );
+          light2.position = new BABYLON.Vector3(0, 5, 5);
+          light2.intensity = 0.2;
+
+          // const light = new BABYLON.DirectionalLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+          // var light2 = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, -1.0), scene);
+          // light2.position = new BABYLON.Vector3(0, 5, 5);
+          // var light3 = new BABYLON.PointLight("light3", new BABYLON.Vector3(3, 0, -5), scene);
+          // var light4 = new BABYLON.PointLight("light4", new BABYLON.Vector3(-1, 5, 3), scene);
+
+          // Skybox
+          const skybox = BABYLON.MeshBuilder.CreateBox(
+            "skyBox",
+            { size: 100.0 },
+            scene
+          );
+          const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+          skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture(
+            "textures/TropicalSunnyDay",
+            scene
+          );
+          skyboxMaterial.reflectionTexture.coordinatesMode =
+            BABYLON.Texture.SKYBOX_MODE;
+          skyboxMaterial.backFaceCulling = false;
+          skyboxMaterial.disableLighting = true;
+          skybox.material = skyboxMaterial;
+
+          var ground = BABYLON.MeshBuilder.CreateGround(
+            "ground",
+            { width: 600, height: 600 },
+            scene
+          );
+          var groundMaterial = new BABYLON.StandardMaterial(
+            "groundMaterial",
+            scene
+          );
+          groundMaterial.diffuseTexture = new BABYLON.Texture(
+            "textures/wood.jpg",
+            scene
+          );
+          groundMaterial.diffuseTexture.uScale = 30;
+          groundMaterial.diffuseTexture.vScale = 30;
+          // groundMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // RGB: (0, 1, 0) is green
+          ground.material = groundMaterial;
+
+          // Load hero character and play animation
+          loadMultipleMeshes(scene);
+
+          // new BABYLON.SceneLoader.ImportMesh("", "./models/", "Soldier.glb", scene, function (newMeshes, particleSystems, skeletons, animationGroups) {
+          //     var hero = newMeshes[0];
+          //     // hero.scaling = new BABYLON.Vector3(0.01, 0.01, 0.1); // Reduce to 1% of the original size
+          //     hero.scaling.scaleInPlace(1.10);
+          //     //     result.meshes.forEach((mesh) => {
+          //     //     mesh.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01); // Scale down to 1% of original size
+          //     // });
+          //     // new BABYLON.Vector3(0.01, 0.01, 0.01);
+          //     //Scale the model down
+          //     // const boundingInfo = hero.getBoundingInfo();
+          //     // const size = boundingInfo.boundingBox.maximum.subtract(boundingInfo.boundingBox.minimum);
+          //     // const maxSize = Math.max(size.x, size.y, size.z);
+          //     // const scaleFactor = 1 / maxSize; // Scale to fit within a unit cube
+          //     // hero.scaling = new BABYLON.Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+          //     //Lock camera on the character
+          //     // camera1.target = hero;
+
+          //     const soldierAnim = scene.getAnimationGroupByName("TPose");
+          //     soldierAnim.start(true, 1.0, soldierAnim.from, soldierAnim.to, false);
+
+          //     // //Get the Samba animation Group
+          //     // const sambaAnim = scene.getAnimationGroupByName("Samba");
+
+          //     // //Play the Samba animation
+          //     // sambaAnim.start(true, 1.0, sambaAnim.from, sambaAnim.to, false);
+
+          // });
+
+          
+        // Add a cube to the scene
+        const addCube = (id, position) => {
+          const cube = BABYLON.MeshBuilder.CreateBox(id, { size: 1 }, scene);
+          const material = new BABYLON.StandardMaterial(id, scene);
+          // material.backFaceCulling = false;
+          // material.reflectionTexture = new BABYLON.CubeTexture("textures/cubemapDebug", scene);
+          // material.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+
+          cube.position = new BABYLON.Vector3(
+            position.x,
+            position.y + 0.5,
+            position.z
+          );
+          cube.material = material;
+
+          cubes[id] = cube;
+          camera1.target = cubes[id];
+
+        };
+
+        // Move a cube in the scene
+        const moveCube = (id, position) => {
+          if (cubes[id]) {
+            cubes[id].position = new BABYLON.Vector3(
+              position.x,
+              position.y + 0.5,
+              position.z
+            );
+          }
+          camera1.target = cubes[id];
+        };
+
+        // Remove a cube from the scene
+        const removeCube = (id) => {
+          if (cubes[id]) {
+            cubes[id].dispose();
+            delete cubes[id];
+          }
+        };
+
+        // Listen for socket events
+        socket.on("connect", () => {
+          currentPlayerId = socket.id;
+        });
+
+        // Handle initial players
+        socket.on("currentPlayers", (players) => {
+          for (const id in players) {
+            if (!cubes[id]) {
+              addCube(id, players[id]);
+            }
+          }
+        });
+
+        // Handle new players
+        socket.on("newPlayer", (data) => {
+          if (!cubes[data.id]) {
+            addCube(data.id, data.position);
+          }
+        });
+
+        // Handle player movement
+        socket.on("updateCube", (data) => {
+          moveCube(data.id, data.position);
+        });
+
+        // Handle player disconnection
+        socket.on("removePlayer", (id) => {
+          removeCube(id);
+        });
+
+        // Handle player input
+        const playerSpeed = 0.1;
+        const playerPosition = { x: 0, y: 0, z: 0 };
+
+        window.addEventListener("keydown", (event) => {
+          if (currentPlayerId && cubes[currentPlayerId]) {
+            switch (event.key) {
+              case "w":
+                playerPosition.z += playerSpeed;
+                break; // Move forward
+              case "s":
+                playerPosition.z -= playerSpeed;
+                break; // Move backward
+              case "a":
+                playerPosition.x -= playerSpeed;
+                break; // Move left
+              case "d":
+                playerPosition.x += playerSpeed;
+                break; // Move right
+              case "q":
+                playerPosition.y -= playerSpeed;
+                break; // Move down
+              case "e":
+                playerPosition.y += playerSpeed;
+                break; // Move up
+            }
+
+            // Update the current player's cube position
+            moveCube(currentPlayerId, playerPosition);
+
+            // Emit the updated position to the server
+            socket.emit("moveCube", playerPosition);
+          }
+        });
+
+
+          return scene;
+        };
+
+        const scene = createScene();
+
+
+
+        engine.runRenderLoop(() => {
+          scene.render();
+        });
+
+        window.addEventListener("resize", () => {
+          engine.resize();
+        });
+      })();
+    </script>
+  </body>
 </html>
