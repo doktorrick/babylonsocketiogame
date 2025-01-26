@@ -75,6 +75,115 @@ function MapManager(scene) {
     ground.material = groundMaterial;
   };
 
+  const createGroundHeightMap = () => {
+    var groundMaterial = new BABYLON.PBRMaterial("groundMaterial", scene);
+    groundMaterial.albedoTexture = new BABYLON.Texture("./resources/textures/ground.jpg", scene);
+    groundMaterial.albedoTexture.uScale = 40;
+    groundMaterial.albedoTexture.vScale = 40;
+    groundMaterial.bumpTexture = new BABYLON.Texture("./resources/textures/ground_normal.jpg", scene);
+    groundMaterial.bumpTexture.uScale = 40;
+    groundMaterial.bumpTexture.vScale = 40;
+    groundMaterial.bumpTexture.intensity = 2;
+    groundMaterial.roughness = 0.7;
+    groundMaterial.metallic = 0;
+
+    const ground2 = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground", "./resources/textures/heightMap.png", {
+        width: 150, height: 150, subdivisions: 40, maxHeight: 3, minHeight: -2
+    });
+    ground2.position.y = -1;
+    ground2.checkCollisions = true;
+    ground2.isPickable = true;
+    ground2.material = groundMaterial;
+    ground2.meshType = "scalable";
+    ground2.receiveShadows = true;
+  }
+
+  const createTestGround = () => {
+    var ground = BABYLON.MeshBuilder.CreateGround(
+      "ground",
+      { height: 50, width: 50, subdivisions: 4 },
+      scene
+    );
+  }
+
+  const createGUI = () => {
+    // GUI
+    var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+    var instructions = new BABYLON.GUI.TextBlock();
+    instructions.text = "Move w/ WASD keys, B for Samba, look with the mouse";
+    instructions.color = "white";
+    instructions.fontSize = 16;
+    instructions.textHorizontalAlignment =
+      BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    instructions.textVerticalAlignment =
+      BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+    advancedTexture.addControl(instructions);
+  };
+
+  const importResourceModelAsync = (model) => {
+    Promise.all([
+      BABYLON.SceneLoader.ImportMeshAsync(
+        null,
+        "./resources/models/",
+        model,
+        scene
+      ).then(function (result) {
+        // Get Player meshes
+        result.meshes.forEach((mesh) => {
+          mesh.receiveShadows = true;
+          mesh.isPickable = false;
+        });
+
+        // console.log("Meshes: " + result.meshes);
+        // Main Player Collision Box
+        player = BABYLON.MeshBuilder.CreateCapsule(
+          "player",
+          { width: 0.3, height: 1, size: 0.3 },
+          scene
+        );
+        player.visibility = 0;
+        player.ellipsoid = new BABYLON.Vector3(0.4, 0.48, 0.4);
+        player.position.y = 0.5;
+        player.isPickable = false;
+        player.checkCollisions = true;
+        player.addChild(result.meshes[0]);
+
+        // player.position = new BABYLON.Vector3(5,1,5);
+
+        scene.getMaterialByName("Metal").roughness = 0.6;
+
+        // Player Animations
+        idleAnim = scene.getAnimationGroupByName("Idle");
+        walkAnim = scene.getAnimationGroupByName("Walk");
+        runAnim = scene.getAnimationGroupByName("Run");
+        runBackAnim = scene.getAnimationGroupByName("RunBack");
+
+        // Set Weight For All Animatables Init
+        idleAnim.setWeightForAllAnimatables(1.0);
+        walkAnim.setWeightForAllAnimatables(0);
+        runAnim.setWeightForAllAnimatables(0);
+      }),
+    ]).then(() => {
+      console.log("ALL Loaded");
+
+      // // Create Demo Objects
+      // demoObjects();
+
+      // createFollowCamera(player);
+
+      // setLighting();
+      // setReflections();
+      // setShadows();
+      // setPostProcessing();
+      // optimizeScene();
+
+      // setTimeout(() => {
+      //   hideLoadingView();
+      //   // Set Player Controller -- controller.js
+      //   setPlayerMovement();
+      // }, 2000);
+    });
+  };
   const loadMultipleMeshes = () => {
     Promise.all([
       BABYLON.SceneLoader.ImportMeshAsync(
@@ -129,5 +238,9 @@ function MapManager(scene) {
     loadMultipleMeshes,
     createDefaultLight,
     createDefaultCamera1,
+    importResourceModelAsync,
+    createGUI,
+    createTestGround,
+    createGroundHeightMap
   };
 }

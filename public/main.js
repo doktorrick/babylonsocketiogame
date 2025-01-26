@@ -17,15 +17,19 @@ function startGame() {
 
     // Map Settings
     mapManager.createDefaultSkybox();
-    mapManager.createDefaultSkybox();
     mapManager.createDefaultLight();
     mapManager.createDefaultGround();
     mapManager.loadMultipleMeshes();
+    mapManager.createGUI();
+    // mapManager.importResourceModelAsync("character.glb")
+    // mapManager.createGroundHeightMap();
 
     //camera1
     const camera1 = mapManager.createDefaultCamera1(canvas);
     const socketManager = createSocketIOManager(socket, cubeManager, camera1);
     socketManager.initialize();
+
+    CharacterControlManager(scene, camera1)
 
     window.addEventListener("keydown", (event) => {
       const currentPlayerId = socketManager.getCurrentPlayerId();
