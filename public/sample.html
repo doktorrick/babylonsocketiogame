@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Shooter Camera</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas" style="width: 100vw; height: 100vh; display: block;"></canvas>
+    <script>
+        window.addEventListener("DOMContentLoaded", function () {
+            const canvas = document.getElementById("renderCanvas");
+            const engine = new BABYLON.Engine(canvas, true);
+
+            const scene = (() => {
+                const createScene = () => {
+                    const scene = new BABYLON.Scene(engine);
+
+                    // Create a camera
+                    const camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 2, -10), scene);
+                    camera.attachControl(canvas, true);
+
+                    // Add a light
+                     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+                    // Create a ground
+                    const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 50, height: 50 }, scene);
+
+                    // Create an invisible aim point
+                    const aimPoint = new BABYLON.Mesh("aimPoint", scene);
+                    aimPoint.position = new BABYLON.Vector3(0, 2, 0);
+
+                    // Create a simple enemy target for testing
+                    const target = BABYLON.MeshBuilder.CreateBox("target", { size: 1 }, scene);
+                    target.position = new BABYLON.Vector3(0, 2, 10);
+
+                    // Raycasting from the camera center
+                    scene.onBeforeRenderObservable.add(() => {
+                        const ray = new BABYLON.Ray(camera.position, camera.getForwardRay().direction, 100);
+                        const hit = scene.pickWithRay(ray);
+
+                        if (hit.pickedPoint) {
+                            aimPoint.position = BABYLON.Vector3.Lerp(aimPoint.position, hit.pickedPoint, 0.1);
+                        }
+
+                        camera.setTarget(aimPoint.position);
+                    });
+
+                    return scene;
+                };
+                
+            })
+            
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener("resize", () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>
