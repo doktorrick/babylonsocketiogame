@@ -6,7 +6,39 @@ function createPlayer(scene, id, position = { x: 0, y: 0.5, z: 0 }) {
     player.speed = 0.3;
     player.rotation.y = 0;
     player.rotationSpeed = 0.05;
+    player.material = new BABYLON.StandardMaterial("Mat", scene);
+    player.material.diffuseTexture = new BABYLON.Texture("textures/crate.png", scene);
+    player.material.diffuseTexture.hasAlpha = true;
     return player;
+}
+
+function createCapsulePlayer(scene, id, position = { x: 0, y: 0, z: 0 }) {
+    let h = 1.8;
+    let r = 0.6;
+    const player = BABYLON.MeshBuilder.CreateCapsule(`player_${id}`, {height: h, radius: r}, scene);
+    player.position = new BABYLON.Vector3(position.x, position.y, position.z);
+    player.speed = 0.3;
+    player.rotation.y = 0;
+    player.rotationSpeed = 0.05;
+
+    // setupRaycasting(id, player, h, scene);
+
+    return player;
+}
+
+function setupRaycasting(id, player, h, scene) {
+    const ray = new BABYLON.Ray(player.position, BABYLON.Vector3.Down(), 1);
+
+    const rayHelper = new BABYLON.RayHelper(ray);
+    rayHelper.show(scene);
+
+    scene.onBeforeRenderObservable.add(() => {
+        const hit = scene.pickWithRay(ray);
+
+        if (hit.pickedMesh) {
+            players[id].position.y = hit.pickedPoint.y + (h / 2);
+        }
+    });
 }
 
 function enablePlayerMovement(player, scene, socket) {
