@@ -1,14 +1,53 @@
 document.addEventListener("DOMContentLoaded", startGame);
 
-function createPlayer(scene, id, position = { x: 0, y: 0.5, z: 0 }) {
-    const player = BABYLON.MeshBuilder.CreateBox(`player_${id}`, { size: 1 }, scene);
-    player.position = new BABYLON.Vector3(position.x, position.y, position.z);
+function createPlayer(scene, id, position = { x: 0, y: 0, z: 0, rotation: { } }, mat = "crate", ground) {
+    let options = { size: 1 };
+
+    if (mat === "face") {
+        var faceUV = new Array(6);
+        faceUV[0] = new BABYLON.Vector4(1 / 3, 0, 2 / 3, 0.5);
+        faceUV[1] = new BABYLON.Vector4(0, 0.5, 1 / 3, 1);
+        faceUV[2] = new BABYLON.Vector4(2 / 3, 0, 1, 0.5);
+        faceUV[3] = new BABYLON.Vector4(0, 0, 1 / 3, 0.5);
+        faceUV[4] = new BABYLON.Vector4(1 / 3, 0.5, 2 / 3, 1);
+        faceUV[5] = new BABYLON.Vector4(2 /3, 0.5, 1, 1);
+    
+        options = { ...options, faceUV: faceUV, wrap: true };
+    }
+
+    // Create the box with the correct options
+    const player = BABYLON.MeshBuilder.CreateBox(`player_${id}`, options, scene);
+    const positionOnGround = player.getBoundingInfo().boundingBox.extendSize.y;
+    player.position = new BABYLON.Vector3(position.x, positionOnGround, position.z);
     player.speed = 0.3;
-    player.rotation.y = 0;
     player.rotationSpeed = 0.05;
+    player.checkCollisions = true;
+    player.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
+    const ellipsoidVisualizer = BABYLON.MeshBuilder.CreateSphere("ellipsoidVisualizer", { diameter: 1 }, scene);
+    ellipsoidVisualizer.position = player.position;  // Position it the same as the cube
+    // ellipsoidVisualizer.material = new BABYLON.StandardMaterial("ellipsoidMaterial", scene);
+    // ellipsoidVisualizer.material.diffuseColor = new BABYLON.Color3(1, 0, 0);  // Red color for visibility
+
     player.material = new BABYLON.StandardMaterial("Mat", scene);
-    player.material.diffuseTexture = new BABYLON.Texture("textures/crate.png", scene);
-    player.material.diffuseTexture.hasAlpha = true;
+
+    if (mat === "crate") {
+        player.material.diffuseTexture = new BABYLON.Texture("textures/crate.png", scene);
+        player.material.diffuseTexture.hasAlpha = true;
+    }
+
+    if (mat === "face") {
+        player.material.diffuseTexture = new BABYLON.Texture("textures/face.jpg", scene);
+        player.material.diffuseTexture.hasAlpha = true;
+        player.rotation.y = Math.PI;
+    }
+
+    scene.registerBeforeRender(function () {
+        if (!player.intersectsMesh(ground)) {
+            player.position.y -= 0.3; 
+        }
+        ellipsoidVisualizer.position = player.position;
+    });
+
     return player;
 }
 
@@ -22,22 +61,20 @@ function createCapsulePlayer(scene, id, position = { x: 0, y: 0, z: 0 }) {
     player.rotationSpeed = 0.05;
 
     // setupRaycasting(id, player, h, scene);
+    setupRaycasting(id, player, h, scene);
 
     return player;
 }
 
-function setupRaycasting(id, player, h, scene) {
-    const ray = new BABYLON.Ray(player.position, BABYLON.Vector3.Down(), 1);
-
-    const rayHelper = new BABYLON.RayHelper(ray);
-    rayHelper.show(scene);
-
-    scene.onBeforeRenderObservable.add(() => {
+function setupRaycasting(id, player, height, scene) {
+    const gravitySpeed = 0.1
+    scene.registerBeforeRender(() => {
+        const ray = new BABYLON.Ray((new BABYLON.Vector3(0, height, 0)), BABYLON.Vector3.Down(), 5);
+        const rayHelper = new BABYLON.RayHelper(ray);
+        rayHelper.show(scene);
+        
         const hit = scene.pickWithRay(ray);
-
-        if (hit.pickedMesh) {
-            players[id].position.y = hit.pickedPoint.y + (h / 2);
-        }
+        
     });
 }
 
@@ -90,11 +127,31 @@ function addFollowingCamera(player, scene) {
     camera.lockedTarget = player;
     camera.radius = 10;
     camera.heightOffset = 5;
-    camera.rotationOffset = 180;
+
+    camera.rotationOffset = 180; // Always behind the player
+
+    camera.cameraAcceleration = 0.05;  // How fast the camera moves to target
+    camera.maxCameraSpeed = 10;        // Max speed camera can move
+
+    // 🛑 Prevent excessive zooming in/out
+    camera.lowerRadiusLimit = 5;  // Minimum distance from the player
+    camera.upperRadiusLimit = 15; // Maximum distance (prevents scrolling too far away)
+
+    // 🛑 Prevent vertical movement from going too high or low
+    camera.lowerHeightOffsetLimit = 3;  // Minimum height (prevents looking under the player)
+    camera.upperHeightOffsetLimit = 7;  // Maximum height (prevents extreme overhead views)
+
+    // 🛑 Prevent the camera from spinning too far (optional)
+    // camera.lowerRotationOffsetLimit = 120; // Prevents too much side rotation
+    // camera.upperRotationOffsetLimit = 240; // Prevents extreme angles
+    camera.lowerRotationOffsetLimit = 180; // Lock rotation
+    camera.upperRotationOffsetLimit = 180;
 
     scene.getEngine().getRenderingCanvas().addEventListener("pointerdown", () => {
         camera.attachControl(scene.getEngine().getRenderingCanvas(), true);
     });
+
+    scene.activeCamera = camera; 
 
     return camera;
 }
@@ -105,10 +162,28 @@ function startGame() {
     const socket = io();
     const players = {}; // Stores all player objects
 
+    // const createScene = (engine, canvas) => {
+    //     const scene = new BABYLON.Scene(engine);
+    //     const skybox = createSkybox(scene);
+    //     const ground = createGround(scene);
+    //     const lights = createLights(scene);
+    
+    //     return {
+    //         scene,
+    //         skybox,
+    //         ground,
+    //         lights
+    //     };
+    // };
+
     const scene = new BABYLON.Scene(engine);
     skybox.add(scene);
-    ground.add(scene);
+    // ground.add(scene);
     light.add(scene);
+
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 100, height: 100}, scene);
+    ground.checkCollisions = true;
+
 
     socket.on("connect", () => {
         console.log("Client connected to server");
@@ -151,12 +226,12 @@ function startGame() {
 
     function addPlayer(id, position) {
         if (!players[id]) {
-            players[id] = createPlayer(scene, id, position);
+            players[id] = createPlayer(scene, id, position, "face", ground);
         }
     }
 
     if (!players[socket.id]) {
-        players[socket.id] = createPlayer(scene, socket.id);
+        players[socket.id] = createPlayer(scene, socket.id, {}, "face", ground);
         enablePlayerMovement(players[socket.id], scene, socket);
         addFollowingCamera(players[socket.id], scene);
     }
