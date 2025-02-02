@@ -14,17 +14,13 @@ const SkyboxPrototype = {
 const GroundPrototype = {
     add(scene) {
         const ground = BABYLON.MeshBuilder.CreateBox("ground", { width:20, height: 0.2, depth: 10 }, scene);
-
-        // const ground = BABYLON.MeshBuilder.CreateGround("ground", { width:20, height: 20, depth: 6 }, scene);
-        // var ground = BABYLON.MeshBuilder.CreateBox("ground", {width: 6, height: 0.5, depth: 6}, scene);
-
+        ground.showBoundingBox = true;
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
         groundMaterial.diffuseTexture = new BABYLON.Texture("../textures/wood.jpg", scene);
         groundMaterial.diffuseTexture.uScale = 30;
         groundMaterial.diffuseTexture.vScale = 30;
         ground.material = groundMaterial;
         ground.checkCollisions = true;
-
         return scene;
     }
 };

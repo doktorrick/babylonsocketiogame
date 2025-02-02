@@ -21,8 +21,11 @@ const createPlayer = (scene, id, position = { x: 0, y: 0, z: 0, rotation: { } },
   player.position = new BABYLON.Vector3(position.x, positionOnGround, position.z);
   player.speed = 0.3;
   player.rotationSpeed = 0.05;
+  player.showBoundingBox = true;
+
   player.checkCollisions = true;
   player.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5);
+
   const ellipsoidVisualizer = BABYLON.MeshBuilder.CreateSphere("ellipsoidVisualizer", { diameter: 1.2 }, scene);
   ellipsoidVisualizer.position = player.position;  // Position it the same as the cube
   ellipsoidVisualizer.material = new BABYLON.StandardMaterial("ellipsoidMaterial", scene);
@@ -41,14 +44,29 @@ const createPlayer = (scene, id, position = { x: 0, y: 0, z: 0, rotation: { } },
       player.rotation.y = Math.PI;
   }
 
-  if(scene) {
-    scene.registerBeforeRender(function () {
-      if (ground && !player.intersectsMesh(ground)) {
-          player.position.y -= 0.3; 
-      }
-      ellipsoidVisualizer.position = player.position;
+  scene.registerBeforeRender(function () {
+    console.log(`ground: ${ground} .... player: ${player}`)
+    if (ground && player) {
+      console.log(`ground: ccc .... player: ccc`)
+
+      if (ground instanceof BABYLON.Mesh) {
+        if (player instanceof BABYLON.Mesh) {
+            if (!player.intersectsMesh(ground)) {
+                player.position.y -= 0.3;  // Gravity effect
+            }
+        } else {
+            console.error("Player is not a BABYLON.Mesh:", player);
+        }
+    } else {
+        console.error("Ground is not a BABYLON.Mesh:", ground);
+    }
+    }
+      
+    if (ellipsoidVisualizer) {
+        ellipsoidVisualizer.position = player.position;
+    }
+
   });
-  }
 
 
   return player;
@@ -132,18 +150,18 @@ const enablePlayerMovement = (player, scene, socket) => {
   return scene;
 }
 
-const addPlayer = (id, position, ground) => {
-  if (!players[id]) {
-      players[id] = createPlayer(scene, id, position, "face", ground);
-  }
-}
-
 const startGame = () => {
   const canvas = document.getElementById("renderCanvas");
   const engine = new BABYLON.Engine(canvas, true);
   const socket = io();
 
   const { scene, ground } = createScene(engine, canvas);
+
+  const addPlayer = (id, position, ground) => {
+    if (!players[id]) {
+        players[id] = createPlayer(scene, id, position, "face", ground);
+    }
+  }
 
   socket.on("connect", () => {
     console.log("Client connected to server");
@@ -176,13 +194,14 @@ const startGame = () => {
       }
   });
 
-    // Handle player disconnect
-    socket.on("removePlayer", (id) => {
-        if (players[id]) {
-            players[id].dispose();
-            delete players[id];
-        }
-    });
+  // Handle player disconnect
+  socket.on("removePlayer", (id) => {
+      if (players[id]) {
+          players[id].dispose();
+          delete players[id];
+      }
+  });
+
 
   if (!players[socket.id]) {
     players[socket.id] = createPlayer(scene, socket.id, {}, "face", ground);
