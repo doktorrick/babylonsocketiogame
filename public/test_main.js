@@ -30,16 +30,16 @@ const createPlayer = (scene, id, position = { x: 0, y: 0, z: 0, rotation: { } },
 
   player.material = new BABYLON.StandardMaterial("Mat", scene);
 
-  // if (mat === "crate") {
-  //     player.material.diffuseTexture = new BABYLON.Texture("textures/crate.png", scene);
-  //     player.material.diffuseTexture.hasAlpha = true;
-  // }
+  if (mat === "crate") {
+      player.material.diffuseTexture = new BABYLON.Texture("textures/crate.png", scene);
+      player.material.diffuseTexture.hasAlpha = true;
+  }
 
-  // if (mat === "face") {
-  //     player.material.diffuseTexture = new BABYLON.Texture("textures/face.jpg", scene);
-  //     player.material.diffuseTexture.hasAlpha = true;
-  //     player.rotation.y = Math.PI;
-  // }
+  if (mat === "face") {
+      player.material.diffuseTexture = new BABYLON.Texture("textures/face.jpg", scene);
+      player.material.diffuseTexture.hasAlpha = true;
+      player.rotation.y = Math.PI;
+  }
 
   if(scene) {
     scene.registerBeforeRender(function () {
@@ -149,45 +149,45 @@ const startGame = () => {
     console.log("Client connected to server");
   });
 
-      // Handle existing players when joining
-      socket.on("currentPlayers", (existingPlayers) => {
+  // Handle existing players when joining
+  socket.on("currentPlayers", (existingPlayers) => {
         for (let id in existingPlayers) {
             if (id !== socket.id) {
                 addPlayer(id, existingPlayers[id].position);
             }
         }
-    });
+  });
 
-    // Handle new player joining
-    socket.on("newPlayer", ({ id, position }) => {
+  // Handle new player joining
+  socket.on("newPlayer", ({ id, position }) => {
         if (!players[id]) {
             addPlayer(id, position);
         }
+  });
+
+  // Handle player movement updates
+  socket.on("updatePlayer", ({ id, position, rotation }) => {
+      if (players[id]) {
+          players[id].position = new BABYLON.Vector3(position.x, position.y, position.z);
+  
+          // Ensure rotation is properly applied
+          players[id].rotationQuaternion = null; // Disable quaternion control
+          players[id].rotation.y = rotation;  // Apply received rotation
+      }
+  });
+
+    // Handle player disconnect
+    socket.on("removePlayer", (id) => {
+        if (players[id]) {
+            players[id].dispose();
+            delete players[id];
+        }
     });
-
-    // // Handle player movement updates
-    // socket.on("updatePlayer", ({ id, position, rotation }) => {
-    //     if (players[id]) {
-    //         players[id].position = new BABYLON.Vector3(position.x, position.y, position.z);
-    
-    //         // Ensure rotation is properly applied
-    //         players[id].rotationQuaternion = null; // Disable quaternion control
-    //         players[id].rotation.y = rotation;  // Apply received rotation
-    //     }
-    // });
-
-    // // Handle player disconnect
-    // socket.on("removePlayer", (id) => {
-    //     if (players[id]) {
-    //         players[id].dispose();
-    //         delete players[id];
-    //     }
-    // });
 
   if (!players[socket.id]) {
     players[socket.id] = createPlayer(scene, socket.id, {}, "face", ground);
-    // enablePlayerMovement(players[socket.id], scene, socket);
-    // addFollowingCamera(players[socket.id], scene);
+    enablePlayerMovement(players[socket.id], scene, socket);
+    addFollowingCamera(players[socket.id], scene);
   }
 
   engine.runRenderLoop(() => scene.render());
