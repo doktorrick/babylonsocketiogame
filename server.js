@@ -8,57 +8,73 @@ const io = new Server(server);
 
 const PORT = 3000;
 
-// Players object to store each player's cube position
+// Store player states
 let players = {};
 
 app.use(express.static('public'));
 
 io.on('connection', (socket) => {
-    console.log(`Server: Player connected: ${socket.id}`);
+    console.log(`✅ Player connected: ${socket.id}`);
 
-    // Initialize the player's cube position
-    players[socket.id] = { x: 0, y: 0, z: 0, rotation: 0 };
+    // Initialize player state
+      // Broadcast the new player to all other players
+    socket.on("playerJoin", (data) => {
+        const { id, position, rotation } = data;
+        players[id] = { position, rotation };
 
-    // When a player joins, send them existing players
+        // Broadcast the new player to all other clients
+        socket.broadcast.emit("newPlayer", { id, position });
+    });
+
+    // Send current players to the new player
     socket.emit('currentPlayers', players);
 
-    // Broadcast new player to others
-    socket.broadcast.emit('newPlayer', { id: socket.id, position: players[socket.id] });
+    // Notify others about the new player
+    socket.broadcast.emit('newPlayer', players[socket.id]);
+
+    // Handle player animations
+    socket.on("playerAnimation", (data) => {
+        if (!players[socket.id]) return;
+    
+        // Debug: Log when the server receives animation updates
+        // console.log(`🎥 Animation received from ${socket.id} - Frame: ${data.frame}`);
+    
+        // Broadcast animation update to all clients, including the sender
+        socket.broadcast.emit("playerAnimation", {
+            playerId: socket.id,
+            frame: data.frame,
+            rotationX: data.rotationX, 
+            timestamp: Date.now()
+        });
+    });
 
     // Handle player movement
     socket.on("playerMove", (data) => {
-        if (players[socket.id]) {
-            players[socket.id] = {
-                position: { x: data.position.x, y: data.position.y, z: data.position.z },
-                rotation: data.rotation,  // Store rotation properly
-                animationTime: data.animationTime
-            };
-            
-            console.log(`Update player: ${socket.id} rotation: ${data.rotation}`);
-    
-            socket.broadcast.emit("updatePlayer", { 
-                id: socket.id, 
-                position: players[socket.id].position, 
-                rotation: players[socket.id].rotation, 
-                animationTime: players[socket.id].animationTime
-            });
-        }
+        if (!players[socket.id]) return;
+
+        players[socket.id].position = { ...data.position };
+        players[socket.id].rotation = data.rotation;
+
+        // Broadcast movement update
+        socket.broadcast.emit("updatePlayer", {
+            id: socket.id,
+            position: players[socket.id].position,
+            rotation: players[socket.id].rotation
+        });
     });
-    
-    
 
-    // Handle player disconnect
+    // Handle player disconnection
     socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
+        console.log(`❌ Player disconnected: ${socket.id}`);
 
-        // Remove the player from the players object
+        // Remove player from the list
         delete players[socket.id];
 
-        // Notify all other players to remove this cube
+        // Notify all other players
         io.emit('removePlayer', socket.id);
     });
 });
 
 server.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

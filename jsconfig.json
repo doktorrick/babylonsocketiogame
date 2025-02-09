@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+      "module": "ES6",
+      "baseUrl": "./",
+      "paths": {
+        "@babylonjs/core": ["node_modules/@babylonjs/core"]
+      }
+    }
+  }
+  

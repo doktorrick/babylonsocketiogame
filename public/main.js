@@ -41,12 +41,12 @@ function createPlayer(scene, id, position = { x: 0, y: 0, z: 0, rotation: { } },
         player.rotation.y = Math.PI;
     }
 
-    scene.registerBeforeRender(function () {
-        if (!player.intersectsMesh(ground)) {
-            player.position.y -= 0.3; 
-        }
-        ellipsoidVisualizer.position = player.position;
-    });
+    // scene.registerBeforeRender(function () {
+    //     if (!player.intersectsMesh(ground)) {
+    //         player.position.y -= 0.3; 
+    //     }
+    //     ellipsoidVisualizer.position = player.position;
+    // });
 
     return player;
 }
